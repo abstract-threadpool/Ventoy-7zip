@@ -1,0 +1,57 @@
+name: release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: windows-2025
+    permissions:
+      contents: write
+    steps:
+      # build 32-bit
+      - name: Fetch x86 code 
+        uses: actions/checkout@v4
+        with:
+          ref: upstream
+          path: x86      
+      - name: Configure build for x86
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+          vsversion: "2022"
+      - run: |
+          cd x86\CPP\7zip\Bundles\Alone
+          nmake
+          7z.exe a -txz ${{ github.workspace }}\7za-x86.xz x86\7za.exe
+      # build 64 bit
+      - name: Fetch x64 code
+        uses: actions/checkout@v4
+        with:
+          ref: upstream
+          path: x64
+          fetch-tags: true
+          fetch-depth: "0"
+      - name: Configure build for x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+          vsversion: "2022"
+      - run: |
+          cd x64\CPP\7zip\Bundles\Alone
+          nmake
+          7z.exe a -txz ${{ github.workspace }}\7za-x64.xz x64\7za.exe
+      # create new release
+      - name: Get latest tag
+        shell: bash
+        run: |
+          cd x64
+          echo "LATEST_TAG=$(git describe --tag --abbrev=0)" >> "$GITHUB_ENV"
+      - name: Create release 
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "7za-x86.xz,7za-x64.xz"
+          tag: ${{env.LATEST_TAG}}
+
+
+        
